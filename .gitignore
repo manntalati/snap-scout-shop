@@ -1,1 +1,5 @@
 virtualenv
+fashion_mnist
+runs
+yolov8n.pt
+yolov8s.pt
