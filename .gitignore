@@ -1,5 +1,9 @@
 virtualenv
-fashion_mnist
-runs
 yolov8n.pt
 yolov8s.pt
+data
+json_for_validation.zip
+test.zip
+train.zip
+validation.zip
+.env

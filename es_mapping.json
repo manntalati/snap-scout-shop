@@ -1,0 +1,26 @@
+{
+    "settings": {
+        "number_of_shards": 1,
+        "number_of_replicas": 0,
+        "index.refresh_interval": "30s"
+    },
+    "mappings": {
+        "properties": {
+            "name": { "type": "text" },
+            "description": { "type": "text" },
+            "brand": { "type": "keyword" },
+            "category": { "type": "keyword" },
+            "price_history": {
+                "type": "nested",
+                "properties": {
+                    "date":  { "type": "date" },
+                    "price": { "type": "float" }
+                }
+            },
+            "embedding": {
+                "type": "dense_vector",
+                "dims": 1536
+            }
+        }
+    }
+}
