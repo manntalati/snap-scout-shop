@@ -4,6 +4,10 @@ Main goal of project: Provide users with the ability to take a picture of the cl
 
 Specifically help people with buying the right items and the right time -- shopping is hard, let's make it easier
 
+## Ideas
+1. YOLO Object Detection
+  - Use yolov8n so it is trained on COCO dataset and train it additionally on DeepFashion2 & Logo2k+ for brands + clothes
+
 ## Steps
 
 1. YOLO Object Detection (specifically clothing detection) -> current step
