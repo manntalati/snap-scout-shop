@@ -1,17 +1,24 @@
 from fastapi import FastAPI, Query, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import openai
-from langchain.llms import OpenAI
+from langchain.chat_models import init_chat_model
+from langchain_core.vectorstores import InMemoryVectorStore
 from langchain.chains import RetrievalQA
-from langchain.embeddings import OpenAIEmbeddings
-from langchain.vectorstores import ElasticVectorSearch
-import base64
-import io
-import cv2
+from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_elasticsearch import ElasticsearchStore
+from langchain_chroma import Chroma
+from langchain.schema import Document
 import numpy as np
 from PIL import Image
+import cv2
 import os
+import traceback
+
+os.environ["LANGSMITH_TRACING"] = "true"
+os.environ["LANGSMITH_API_KEY"] = os.getenv('LANGSMITH_API_KEY')
+
+if not os.environ.get("GOOGLE_API_KEY"):
+  os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")
 
 app = FastAPI()
 
@@ -23,10 +30,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-llm = OpenAI(temperature=0.2)
-embeddings = OpenAIEmbeddings()
+llm = init_chat_model("gemini-2.0-flash", model_provider="google_genai")
+embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
 
-vector_store = ElasticVectorSearch(
+#texts = ["Nike Air Max is a popular shoe.", "Adidas UltraBoost is known for comfort."]
+#docs = [Document(page_content=t) for t in texts]
+
+#docs = [Document(page_content="Nike Air Max 270 - stylish and comfy."), Document(page_content="Adidas Originals, classic street style.")]
+#vector_store = Chroma.from_documents(docs, embedding=embeddings)
+
+vector_store = ElasticsearchStore(
     es_url="http://localhost:9200",
     index_name="products",
     embedding=embeddings,
@@ -109,8 +122,13 @@ async def chat(message: ChatMessage):
             context = f"Product: {message.product_data.get('name', 'Unknown')} - {message.product_data.get('brand', 'Unknown')} at ${message.product_data.get('price', 0)}. "
         
         full_prompt = f"{context}User question: {message.message}"
+
+        print("Received chat message:", message)
+        print("Full prompt to LLM:", full_prompt)
         
         resp = qa(full_prompt)
+
+        print("LLM response:", resp)
         
         return {
             "response": resp["result"],
@@ -123,6 +141,7 @@ async def chat(message: ChatMessage):
             ]
         }
     except Exception as e:
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error in chat: {str(e)}")
 
 @app.get("/health")
