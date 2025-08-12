@@ -1,55 +1,60 @@
 from fastapi import FastAPI, Query, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from flask import Flask, request, jsonify, send_from_directory, session
+from flask_cors import CORS
 from pydantic import BaseModel
 from langchain.chat_models import init_chat_model
 from langchain_core.vectorstores import InMemoryVectorStore
 from langchain.chains import RetrievalQA
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_elasticsearch import ElasticsearchStore
 from langchain_chroma import Chroma
+from langchain.chains import ConversationalRetrievalChain
+from langchain.memory import ConversationBufferMemory
 from langchain.schema import Document
 import numpy as np
 from PIL import Image
 import cv2
 import os
 import traceback
+from dotenv import load_dotenv
+from langchain_core.vectorstores import InMemoryVectorStore # testing purposes
+
+load_dotenv()
 
 os.environ["LANGSMITH_TRACING"] = "true"
-os.environ["LANGSMITH_API_KEY"] = os.getenv('LANGSMITH_API_KEY')
+os.environ["LANGSMITH_API_KEY"] = os.getenv("LANGSMITH_API_KEY")
+os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")
 
-if not os.environ.get("GOOGLE_API_KEY"):
-  os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")
+app = Flask(__name__, static_folder="../frontend/build", static_url_path="/")
+app.secret_key = 'snap-scout-shop-secret-key'
+CORS(app, origins="*", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"])
 
-app = FastAPI()
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:80"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-llm = init_chat_model("gemini-2.0-flash", model_provider="google_genai")
+llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", temperature=0.8)
 embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+memory = ConversationBufferMemory(memory_key="chat_history", return_messages=True)
 
-#texts = ["Nike Air Max is a popular shoe.", "Adidas UltraBoost is known for comfort."]
-#docs = [Document(page_content=t) for t in texts]
+vector_store = InMemoryVectorStore(embedding=embeddings) # testing purposes
 
-#docs = [Document(page_content="Nike Air Max 270 - stylish and comfy."), Document(page_content="Adidas Originals, classic street style.")]
-#vector_store = Chroma.from_documents(docs, embedding=embeddings)
+docs = [
+    Document(page_content="Nike Air Max 270 by Nike priced at $150", metadata={"id": "1", "price": 150, "brand": "Nike"}),
+    Document(page_content="Adidas Ultraboost shoes priced at $180", metadata={"id": "2", "price": 180, "brand": "Adidas"}),
+] # testing purposes
 
-vector_store = ElasticsearchStore(
-    es_url="http://localhost:9200",
-    index_name="products",
-    embedding=embeddings,
-)
+vector_store.add_documents(docs) # testing purposes
+# vector_store = ElasticsearchStore(
+#     es_url="http://localhost:3050",
+#     index_name="products",
+#     embedding=embeddings,
+# )
 
-qa = RetrievalQA.from_chain_type(
+qa = ConversationalRetrievalChain.from_llm(
     llm=llm,
-    chain_type="stuff",
-    retriever=vector_store.as_retriever(k=5),
-    return_source_documents=True
+    retriever=vector_store.as_retriever(search_kwargs={"k": 5}),
+    memory=memory,
+    return_source_documents=False,
+    output_key='answer'
 )
 
 class QueryIn(BaseModel):
@@ -100,9 +105,9 @@ async def detect_product(file: UploadFile = File(...)):
 @app.post("/recommend")
 def recommend(q: QueryIn):
     try:
-        resp = qa(q.question)
+        resp = qa.invoke({"question": q.question})
         return {
-            "answer": resp["result"],
+            "answer": resp["answer"],
             "sources": [
                 {
                   "id": doc.metadata.get("id"),
@@ -115,7 +120,7 @@ def recommend(q: QueryIn):
         raise HTTPException(status_code=500, detail=f"Error getting recommendations: {str(e)}")
 
 @app.post("/chat")
-async def chat(message: ChatMessage):
+def chat(message: ChatMessage):
     try:
         context = ""
         if message.product_data:
@@ -126,12 +131,12 @@ async def chat(message: ChatMessage):
         print("Received chat message:", message)
         print("Full prompt to LLM:", full_prompt)
         
-        resp = qa(full_prompt)
+        resp = qa.invoke({"question": full_prompt})
 
         print("LLM response:", resp)
         
         return {
-            "response": resp["result"],
+            "response": resp["answer"],
             "sources": [
                 {
                   "id": doc.metadata.get("id"),
@@ -147,3 +152,6 @@ async def chat(message: ChatMessage):
 @app.get("/health")
 def health_check():
     return {"status": "healthy", "service": "snap-scout-shop-api"}
+
+if __name__ == '__main__':
+    app.run(debug=True, host="0.0.0.0", port=3050)
