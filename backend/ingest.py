@@ -2,8 +2,11 @@ import json
 from elasticsearch import Elasticsearch
 import os
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from dotenv import load_dotenv
 
-elastic_search = Elasticsearch("http://localhost:9200")
+load_dotenv()
+
+elastic_search = Elasticsearch("http://localhost:3050")
 os.environ["GOOGLE_API_KEY"] = os.getenv("GOOGLE_API_KEY")
 embeddings_model = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
 

@@ -68,13 +68,20 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onImageCapture, isLoading
               </div>
             </div>
             
-            <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex space-x-4">
+            <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex space-x-4 items-center">
               <button
                 onClick={toggleCamera}
                 className="w-12 h-12 flex items-center justify-center bg-black/70 backdrop-blur-sm rounded-lg hover:bg-black/80 transition-all duration-300 border border-gray-600"
-                title="Switch Camera"
+                title="Refresh Camera"
               >
                 <RotateCcw className="w-6 h-6 text-white" />
+              </button>
+              <button
+                onClick={() => setFacingMode(facingMode === 'user' ? 'environment' : 'user')}
+                className="w-12 h-12 flex items-center justify-center bg-black/70 backdrop-blur-sm rounded-lg hover:bg-black/80 transition-all duration-300 border border-gray-600"
+                title="Flip Camera"
+              >
+                <Camera className="w-6 h-6 text-white rotate-180" />
               </button>
               <button
                 onClick={capture}
@@ -153,4 +160,4 @@ const CameraCapture: React.FC<CameraCaptureProps> = ({ onImageCapture, isLoading
   );
 };
 
-export default CameraCapture; 
+export default CameraCapture;
